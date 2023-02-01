@@ -5,4 +5,4 @@ members = ["crates/oauth-gen", "crates/bot", "crates/lyrics"]
 authors = ["Tomio"]
 edition = "2021"
 include = ["src/**/*.rs", "README.txt"]
-license = "MIT"
+license = "AGPL-3.0"
