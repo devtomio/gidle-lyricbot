@@ -11,6 +11,7 @@ use anyhow::Result;
 use dotenvy::dotenv;
 use egg_mode::tweet::DraftTweet;
 use egg_mode::{KeyPair, Token};
+use egg_mode::auth::verify_tokens;
 #[cfg(unix)]
 use tokio::signal::unix as signal;
 #[cfg(windows)]
@@ -36,6 +37,9 @@ async fn main() -> Result<()> {
         access,
     });
 
+    let current_user = verify_tokens(&token).await?;
+    info!("current user: {} (@{})", current_user.name, current_user.screen_name);
+
     let mut sched = JobScheduler::new().await?;
     let job = Job::new_async(POST_SCHEDULE, move |_uuid, _lock| {
         let token = token.clone();
@@ -46,13 +50,13 @@ async fn main() -> Result<()> {
 
             DraftTweet::new(spotify_link).in_reply_to(tweet.id).send(&token).await.unwrap();
 
-            info!("posted tweet ({})", tweet.id);
+            info!("posted tweet ({}).", tweet.id);
         })
     })?;
 
     let guid = job.guid();
 
-    info!("created job ({guid})");
+    info!("created job ({guid}).");
 
     sched.add(job).await.unwrap();
     sched.start().await?;
