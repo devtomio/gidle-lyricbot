@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
     let guid = job.guid();
     let schedule = job.job_data()?.schedule().context("job schedule not present")?;
 
-    info!("created job - {schedule}");
+    info!("created job with schedule {schedule} - {guid}");
 
     sched.add(job).await.unwrap();
     sched.start().await?;
