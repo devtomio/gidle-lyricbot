@@ -9,9 +9,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use dotenvy::dotenv;
+use egg_mode::auth::verify_tokens;
 use egg_mode::tweet::DraftTweet;
 use egg_mode::{KeyPair, Token};
-use egg_mode::auth::verify_tokens;
 #[cfg(unix)]
 use tokio::signal::unix as signal;
 #[cfg(windows)]
