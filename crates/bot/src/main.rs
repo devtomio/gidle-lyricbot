@@ -7,7 +7,7 @@ extern crate tracing;
 use std::env;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use dotenvy::dotenv;
 use egg_mode::tweet::DraftTweet;
 use egg_mode::{KeyPair, Token};
@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     });
 
     let mut sched = JobScheduler::new().await?;
-    let mut job = Job::new_async(POST_SCHEDULE, move |_uuid, _lock| {
+    let job = Job::new_async(POST_SCHEDULE, move |_uuid, _lock| {
         let token = token.clone();
 
         Box::pin(async move {
@@ -46,14 +46,13 @@ async fn main() -> Result<()> {
 
             DraftTweet::new(spotify_link).in_reply_to(tweet.id).send(&token).await.unwrap();
 
-            info!("posted tweet - {}", tweet.id);
+            info!("posted tweet ({})", tweet.id);
         })
     })?;
 
     let guid = job.guid();
-    let schedule = job.job_data()?.schedule().context("job schedule not present")?;
 
-    info!("created job with schedule {schedule} - {guid}");
+    info!("created job ({guid})");
 
     sched.add(job).await.unwrap();
     sched.start().await?;
