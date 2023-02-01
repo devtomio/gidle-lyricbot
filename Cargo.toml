@@ -4,5 +4,5 @@ members = ["crates/oauth-gen", "crates/bot", "crates/lyrics"]
 [workspace.package]
 authors = ["Tomio"]
 edition = "2021"
-include = ["src/**/*.rs", "README.txt"]
+include = ["src/**/*.rs", "README.md"]
 license = "AGPL-3.0"

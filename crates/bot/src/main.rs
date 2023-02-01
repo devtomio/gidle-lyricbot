@@ -1,8 +1,8 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::similar_names)]
 
-#[macro_use]
-extern crate tracing;
+mod banner;
+mod healthcheck;
 
 use std::env;
 use std::sync::Arc;
@@ -12,12 +12,14 @@ use dotenvy::dotenv;
 use egg_mode::auth::verify_tokens;
 use egg_mode::tweet::DraftTweet;
 use egg_mode::{KeyPair, Token};
+use salvo::listener::TcpListener;
+use salvo::{Router, Server};
 #[cfg(unix)]
 use tokio::signal::unix as signal;
 #[cfg(windows)]
 use tokio::signal::windows as signal;
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::Level;
+use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 // At second :00, at minute :00, every 2 hours starting at 00am, of every day
@@ -26,6 +28,8 @@ const POST_SCHEDULE: &str = "0 0 0/2 ? * * *";
 #[tokio::main]
 async fn main() -> Result<()> {
     let _ = dotenv();
+
+    banner::print();
 
     let subscriber = FmtSubscriber::builder().with_max_level(Level::INFO).finish();
     tracing::subscriber::set_global_default(subscriber)?;
@@ -61,6 +65,16 @@ async fn main() -> Result<()> {
     sched.add(job).await.unwrap();
     sched.start().await?;
 
+    let healthcheck_server_handle = tokio::spawn(async move {
+        let port = env::var("PORT").map(|port| port.parse::<u16>().unwrap_or(3000)).unwrap_or(3000);
+        let host = env::var("HOST").unwrap_or("0.0.0.0".to_string());
+        let address = format!("{host}:{port}");
+        let router = Router::new().path("/healthcheck").get(healthcheck::healthcheck);
+
+        info!("healthcheck server listening on {address}.");
+        Server::new(TcpListener::bind(&address)).serve(router).await;
+    });
+
     #[cfg(unix)]
     {
         let [mut s1, mut s2, mut s3] = [
@@ -88,6 +102,7 @@ async fn main() -> Result<()> {
 
     sched.remove(&guid).await?;
     sched.shutdown().await?;
+    healthcheck_server_handle.abort();
 
     Ok(())
 }

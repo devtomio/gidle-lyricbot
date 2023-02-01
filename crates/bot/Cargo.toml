@@ -13,7 +13,10 @@ anyhow = "1.0.68"
 dotenvy = "0.15.6"
 egg-mode = { version = "0.16.0", default-features = false, features = ["rustls"] }
 lyrics = { version = "0.1.0", path = "../lyrics" }
-tokio = { version = "1.24.2", features = ["full"] }
+owo-colors = "3.5.0"
+rand = "0.8.5"
+salvo = "0.37.9"
+tokio = { version = "1.24.2", features = ["full", "tracing"] }
 tokio-cron-scheduler = "0.9.3"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
