@@ -11,8 +11,7 @@ pub struct Song {
     lyrics: Vec<String>,
 }
 
-pub static SONGS: Lazy<Vec<Song>> =
-    Lazy::new(|| include!(concat!(env!("OUT_DIR"), "/lyrics.rs")));
+pub static SONGS: Lazy<Vec<Song>> = Lazy::new(|| include!(concat!(env!("OUT_DIR"), "/lyrics.rs")));
 
 pub fn get_random_song<'a>() -> &'a Song {
     SONGS.choose(&mut rand::thread_rng()).unwrap()

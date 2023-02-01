@@ -15,3 +15,5 @@ egg-mode = { version = "0.16.0", default-features = false, features = ["rustls"]
 lyrics = { version = "0.1.0", path = "../lyrics" }
 tokio = { version = "1.24.2", features = ["full"] }
 tokio-cron-scheduler = "0.9.3"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
