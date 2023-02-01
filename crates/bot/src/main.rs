@@ -7,9 +7,8 @@ extern crate tracing;
 use std::env;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use dotenvy::dotenv;
-use egg_mode::auth::verify_tokens;
 use egg_mode::tweet::DraftTweet;
 use egg_mode::{KeyPair, Token};
 #[cfg(unix)]
@@ -27,7 +26,7 @@ const POST_SCHEDULE: &str = "0 0 0/2 ? * * *";
 async fn main() -> Result<()> {
     let _ = dotenv();
 
-    let subscriber = FmtSubscriber::builder().with_max_level(Level::DEBUG).finish();
+    let subscriber = FmtSubscriber::builder().with_max_level(Level::INFO).finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
     let consumer = KeyPair::new(env::var("API_KEY")?, env::var("API_KEY_SECRET")?);
@@ -37,12 +36,8 @@ async fn main() -> Result<()> {
         access,
     });
 
-    let current_user = verify_tokens(&token).await?;
-
-    info!("current user: {} (@{})", current_user.name, current_user.screen_name);
-
     let mut sched = JobScheduler::new().await?;
-    let job = Job::new_async(POST_SCHEDULE, move |_uuid, _lock| {
+    let mut job = Job::new_async(POST_SCHEDULE, move |_uuid, _lock| {
         let token = token.clone();
 
         Box::pin(async move {
@@ -50,10 +45,15 @@ async fn main() -> Result<()> {
             let tweet = DraftTweet::new(lyric).send(&token).await.unwrap();
 
             DraftTweet::new(spotify_link).in_reply_to(tweet.id).send(&token).await.unwrap();
+
+            info!("posted tweet - {}", tweet.id);
         })
     })?;
 
     let guid = job.guid();
+    let schedule = job.job_data()?.schedule().context("job schedule not present")?;
+
+    info!("created job - {schedule}");
 
     sched.add(job).await.unwrap();
     sched.start().await?;
