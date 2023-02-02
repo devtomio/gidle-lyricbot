@@ -19,7 +19,7 @@ use tokio::signal::unix as signal;
 #[cfg(windows)]
 use tokio::signal::windows as signal;
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{Level};
+use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use twitter_v2::authorization::Oauth1aToken;
 use twitter_v2::TwitterApi;
