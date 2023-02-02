@@ -1,17 +1,17 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::similar_names)]
 
+#[macro_use]
+extern crate tracing;
+
 mod banner;
 mod healthcheck;
 
 use std::env;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use dotenvy::dotenv;
-use egg_mode::auth::verify_tokens;
-use egg_mode::tweet::DraftTweet;
-use egg_mode::{KeyPair, Token};
 use salvo::listener::TcpListener;
 use salvo::{Router, Server};
 #[cfg(unix)]
@@ -19,8 +19,10 @@ use tokio::signal::unix as signal;
 #[cfg(windows)]
 use tokio::signal::windows as signal;
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{info, Level};
+use tracing::{Level};
 use tracing_subscriber::FmtSubscriber;
+use twitter_v2::authorization::Oauth1aToken;
+use twitter_v2::TwitterApi;
 
 // At second :00, at minute :00, every 2 hours starting at 00am, of every day
 const POST_SCHEDULE: &str = "0 0 0/2 ? * * *";
@@ -34,25 +36,36 @@ async fn main() -> Result<()> {
     let subscriber = FmtSubscriber::builder().with_max_level(Level::INFO).finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
-    let consumer = KeyPair::new(env::var("API_KEY")?, env::var("API_KEY_SECRET")?);
-    let access = KeyPair::new(env::var("ACCESS_TOKEN")?, env::var("ACCESS_TOKEN_SECRET")?);
-    let token = Arc::new(Token::Access {
-        consumer,
-        access,
-    });
+    let token = Oauth1aToken::new(
+        env::var("API_KEY")?,
+        env::var("API_KEY_SECRET")?,
+        env::var("ACCESS_TOKEN")?,
+        env::var("ACCESS_TOKEN_SECRET")?,
+    );
 
-    let current_user = verify_tokens(&token).await?;
-    info!("current user: {} (@{})", current_user.name, current_user.screen_name);
+    let twitter = Arc::new(TwitterApi::new(token));
+
+    let current_user = twitter.get_users_me().send().await?;
+    let current_user = current_user.data().context("Current user not present")?;
+
+    info!("current user: {} (@{})", current_user.name, current_user.username);
 
     let mut sched = JobScheduler::new().await?;
     let job = Job::new_async(POST_SCHEDULE, move |_uuid, _lock| {
-        let token = token.clone();
+        let twitter = twitter.clone();
 
         Box::pin(async move {
             let (lyric, spotify_link) = lyrics::get_random_lyric();
-            let tweet = DraftTweet::new(lyric).send(&token).await.unwrap();
+            let tweet = twitter.post_tweet().text(lyric.to_string()).send().await.unwrap();
+            let tweet = tweet.data().unwrap();
 
-            DraftTweet::new(spotify_link).in_reply_to(tweet.id).send(&token).await.unwrap();
+            twitter
+                .post_tweet()
+                .text(spotify_link.to_string())
+                .in_reply_to_tweet_id(tweet.id)
+                .send()
+                .await
+                .unwrap();
 
             info!("posted tweet ({}).", tweet.id);
         })
